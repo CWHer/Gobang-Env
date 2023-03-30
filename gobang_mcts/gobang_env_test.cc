@@ -4,7 +4,7 @@
 
 TEST(GobangEnvTest, Basic)
 {
-    Gobang env(15, 5);
+    GobangEnv env(15, 5);
     env.reset();
     auto valid_actions = env.getActions();
     EXPECT_EQ(valid_actions.size(), 15 * 15);
@@ -36,7 +36,7 @@ TEST(GobangEnvTest, Basic)
 
 TEST(GobangEnvTest, Restore)
 {
-    Gobang env(15, 5);
+    GobangEnv env(15, 5);
     env.reset();
     env.step(0);
     env.step(15);
@@ -66,7 +66,7 @@ TEST(GobangEnvTest, Restore)
 
 TEST(GobangEnvTest, Draw)
 {
-    Gobang env(5, 10);
+    GobangEnv env(5, 10);
     for (int i = 0; i < 5 * 5; i++)
     {
         env.step(i);

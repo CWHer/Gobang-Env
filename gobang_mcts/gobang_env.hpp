@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <iostream>
 #include <cassert>
@@ -33,7 +35,7 @@ struct GobangBoard
 
     std::vector<int> encode()
     {
-        // TODO: this is just a simple encoder
+        // TODO: this is just a simple encoding
         auto flatten_size = board.size();
         std::vector<int> encoded_state(3 * flatten_size);
         int offset = 0;
@@ -63,7 +65,7 @@ struct GobangBoard
     }
 };
 
-class Gobang
+class GobangEnv
 {
 private:
     GobangBoard board;
@@ -71,7 +73,7 @@ private:
     int winner;
 
 public:
-    Gobang(int board_size, int win_length)
+    GobangEnv(int board_size, int win_length)
         : board(board_size), win_length(win_length), winner(-1)
     {
     }
