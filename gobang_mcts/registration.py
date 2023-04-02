@@ -2,7 +2,7 @@ from envpool.registration import register
 
 register(
     task_id="GobangSelfPlay",
-    import_path="envpool.gobang_envpool",
+    import_path="envpool.gobang_mcts",
     spec_cls="GobangEnvSpec",
     dm_cls="GobangDMEnvPool",
     gym_cls="GobangGymEnvPool",
