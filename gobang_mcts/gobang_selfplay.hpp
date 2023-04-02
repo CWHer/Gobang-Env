@@ -30,9 +30,12 @@ private:
     bool is_done;
 
     // episode data
-    std::vector<int> historical_actions; // debug
     std::vector<std::pair<int, int>> actions_visits;
 
+public:
+    std::vector<int> historical_actions; // debug
+
+private:
     std::vector<float> softMax(const std::vector<float> &logits)
     {
         float max_logit = std::numeric_limits<float>::lowest();

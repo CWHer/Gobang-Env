@@ -25,7 +25,8 @@ namespace GobangSpace
             return MakeDict(
                 "obs:state"_.Bind(Spec<int>({3, conf["board_size"_], conf["board_size"_]})),
                 "obs:mcts_result"_.Bind(Spec<int>({conf["board_size"_] * conf["board_size"_]})),
-                "info:winner"_.Bind(Spec<int>({1})));
+                "info:winner"_.Bind(Spec<int>({1})),
+                "info:player_step_count"_.Bind(Spec<int>({1})));
         }
 
         template <typename Config>
@@ -50,6 +51,9 @@ namespace GobangSpace
         std::shared_ptr<GobangSelfPlay> game;
         bool done;
 
+        // debug
+        int player_step_count = 0;
+
     private:
         void writeState()
         {
@@ -65,10 +69,19 @@ namespace GobangSpace
             state["info:winner"_] = done ? game->getWinner() : -1;
 
             // debug
-            // int check_value = std::accumulate(
-            //     mcts_result_.begin(), mcts_result_.end(), 0);
-            // if (check_value + mcts_result_.size() > 0)
-            //     game->display();
+            int check_value = std::accumulate(
+                mcts_result_.begin(), mcts_result_.end(), 0);
+            if (check_value + mcts_result_.size() > 0)
+                player_step_count++;
+            state["info:player_step_count"_] = player_step_count;
+            if (done)
+            {
+                assert(player_step_count == game->historical_actions.size());
+                // std::cout << "Player step count: " << player_step_count << std::endl;
+                // std::cout << "Env id: " << env_id_ << std::endl;
+                // game->display();
+                // std::cout << std::endl;
+            }
         }
 
     public:
@@ -97,6 +110,7 @@ namespace GobangSpace
                 inv_temp, dirichlet_alpha, dirichlet_eps);
             game->reset();
             done = game->step({}, 0);
+            player_step_count = 0;
             assert(!done);
             writeState();
         }
