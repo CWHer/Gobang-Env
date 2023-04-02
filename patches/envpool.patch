@@ -1,0 +1,51 @@
+diff --git a/envpool/BUILD b/envpool/BUILD
+index d7fc297..ae01920 100644
+--- a/envpool/BUILD
++++ b/envpool/BUILD
+@@ -31,6 +31,7 @@ py_library(
+     srcs = ["entry.py"],
+     deps = [
+         "//envpool/classic_control:classic_control_registration",
++        "//envpool/gobang_mcts:py_gobang_envpool_registration",
+     ],
+ )
+ 
+@@ -41,6 +42,7 @@ py_library(
+         ":entry",
+         ":registration",
+         "//envpool/classic_control",
++        "//envpool/gobang_mcts:py_gobang_envpool_init",
+     ],
+ )
+ 
+diff --git a/envpool/entry.py b/envpool/entry.py
+index 4de5c36..a2d31ec 100644
+--- a/envpool/entry.py
++++ b/envpool/entry.py
+@@ -18,3 +18,8 @@ try:
+   import envpool.classic_control.registration  # noqa: F401
+ except ImportError:
+   pass
++
++try:
++  import envpool.gobang_mcts.registration  # noqa: F401
++except ImportError:
++  pass
+diff --git a/envpool/make_test.py b/envpool/make_test.py
+index e401831..11fc575 100644
+--- a/envpool/make_test.py
++++ b/envpool/make_test.py
+@@ -69,6 +69,13 @@ class _MakeTest(absltest.TestCase):
+       ]
+     )
+ 
++  def test_make_gobang(self) -> None:
++    self.check_step(
++      [
++        "GobangSelfPlay",
++      ]
++    )
++
+ 
+ if __name__ == "__main__":
+   absltest.main()
