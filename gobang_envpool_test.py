@@ -21,7 +21,7 @@ class GobangTest(unittest.TestCase):
         state = [[] for _ in range(num_envs)]
         probs = [[] for _ in range(num_envs)]
         done = [False for _ in range(num_envs)]
-        collect_next_state = [True for _ in range(num_envs)]
+        collect_this_state = [True for _ in range(num_envs)]
         player_step_count = [0 for _ in range(num_envs)]
         winner = [-1 for _ in range(num_envs)]
 
@@ -29,26 +29,25 @@ class GobangTest(unittest.TestCase):
         with tqdm.tqdm(total=num_envs) as pbar:
             while not all(done):
                 obs, reward, terminated, truncated, info = env.recv()
+                player_step = np.sum(obs.mcts_result, axis=1) != -15 * 15
                 for i in range(num_envs):
-                    if not done[i] and collect_next_state[i]:
-                        state[i].append(obs.state[i])
-                        collect_next_state[i] = False
+                    if not done[i] and player_step[i]:
+                        collect_this_state[i] = True
+                        player_step_count[i] += 1
+                        probs[i].append(obs.mcts_result[i])
+
+                for i in range(num_envs):
                     if not done[i] and (terminated[i] or truncated[i]):
                         pbar.update(1)
                         done[i] = True
-                        player_step_count[i] += 1
                         self.assertEqual(
                             player_step_count[i], info["player_step_count"][i],
                             f"Wrong player_step_count at env {i}"
                         )
                         winner[i] = info["winner"][i]
-
-                player_step = np.sum(obs.mcts_result, axis=1) != -15 * 15
-                for i in range(num_envs):
-                    if not done[i] and player_step[i]:
-                        collect_next_state[i] = True
-                        player_step_count[i] += 1
-                        probs[i].append(obs.mcts_result[i])
+                    if not done[i] and collect_this_state[i]:
+                        state[i].append(obs.state[i])
+                        collect_this_state[i] = False
 
                 for i in range(num_envs):
                     if not done[i]:
@@ -67,6 +66,11 @@ class GobangTest(unittest.TestCase):
                 winner[i] == -1 or 1 - winner[i] == player_step_count[i] % 2,
                 f"Wrong winner at env {i}"
             )
+            self.assertEqual(len(state[i]), len(probs[i]))
+            self.assertEqual(len(state[i]), player_step_count[i])
+            for i, s in enumerate(state[i]):
+                self.assertTrue(np.all(s[-1] == i % 2))
+                self.assertTrue(np.sum(s[:-1]) == i)
 
     def testAsync(self):
         num_envs = 20
@@ -79,7 +83,7 @@ class GobangTest(unittest.TestCase):
         state = [[] for _ in range(num_envs)]
         probs = [[] for _ in range(num_envs)]
         done = [False for _ in range(num_envs)]
-        collect_next_state = [True for _ in range(num_envs)]
+        collect_this_state = [True for _ in range(num_envs)]
         player_step_count = [0 for _ in range(num_envs)]
         winner = [-1 for _ in range(num_envs)]
 
@@ -87,26 +91,25 @@ class GobangTest(unittest.TestCase):
         with tqdm.tqdm(total=num_envs) as pbar:
             while not all(done):
                 obs, reward, terminated, truncated, info = env.recv()
+                player_step = np.sum(obs.mcts_result, axis=1) != -15 * 15
                 for i, index in enumerate(info["env_id"]):
-                    if not done[index] and collect_next_state[index]:
-                        state[index].append(obs.state[i])
-                        collect_next_state[index] = False
+                    if not done[index] and player_step[i]:
+                        collect_this_state[index] = True
+                        player_step_count[index] += 1
+                        probs[index].append(obs.mcts_result[i])
+
+                for i, index in enumerate(info["env_id"]):
                     if not done[index] and (terminated[i] or truncated[i]):
                         pbar.update(1)
                         done[index] = True
-                        player_step_count[index] += 1
                         self.assertEqual(
                             player_step_count[index], info["player_step_count"][i],
                             f"Wrong player_step_count at env {index}"
                         )
                         winner[index] = info["winner"][i]
-
-                player_step = np.sum(obs.mcts_result, axis=1) != -15 * 15
-                for i, index in enumerate(info["env_id"]):
-                    if not done[index] and player_step[i]:
-                        collect_next_state[index] = True
-                        player_step_count[index] += 1
-                        probs[index].append(obs.mcts_result[i])
+                    if not done[index] and collect_this_state[index]:
+                        state[index].append(obs.state[i])
+                        collect_this_state[index] = False
 
                 for i, index in enumerate(info["env_id"]):
                     if not done[index]:
@@ -125,6 +128,11 @@ class GobangTest(unittest.TestCase):
                 winner[i] == -1 or 1 - winner[i] == player_step_count[i] % 2,
                 f"Wrong winner at env {i}"
             )
+            self.assertEqual(len(state[i]), len(probs[i]))
+            self.assertEqual(len(state[i]), player_step_count[i])
+            for i, s in enumerate(state[i]):
+                self.assertTrue(np.all(s[-1] == i % 2))
+                self.assertTrue(np.sum(s[:-1]) == i)
 
     def testThroughput(self):
         num_envs = 400
