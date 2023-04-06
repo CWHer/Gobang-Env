@@ -13,9 +13,25 @@ TEST(GobangEnvTest, Basic)
     env.step(1);
     env.step(16);
     env.step(2);
-    auto encoded_state = env.getState();
-    EXPECT_EQ(encoded_state.size(), 3 * 15 * 15);
-    EXPECT_EQ(encoded_state.front(), 1);
+    int num_player_planes = 3;
+    auto encoded_state = env.getState(num_player_planes);
+    EXPECT_EQ(encoded_state.size(), (num_player_planes * 2 + 1) * 15 * 15);
+    int player0_steps = 3;
+    for (int i = 0; i < num_player_planes; i++)
+    {
+        int check_sum = 0;
+        for (int j = 0; j < 15 * 15; j++)
+            check_sum += encoded_state[i * 15 * 15 + j];
+        EXPECT_EQ(check_sum, std::max(0, player0_steps - i));
+    }
+    int player1_steps = 2;
+    for (int i = 0; i < num_player_planes; i++)
+    {
+        int check_sum = 0;
+        for (int j = 0; j < 15 * 15; j++)
+            check_sum += encoded_state[(num_player_planes + i) * 15 * 15 + j];
+        EXPECT_EQ(check_sum, std::max(0, player1_steps - i));
+    }
     EXPECT_EQ(encoded_state.back(), 1);
     env.step(17);
     env.step(3);

@@ -10,17 +10,20 @@ struct GobangBoard
     int board_size;
     std::vector<int> board;
     int player;
+    std::vector<int> historical_actions;
 
     GobangBoard(int board_size)
         : board_size(board_size), player(0)
     {
         board.resize(board_size * board_size, -1);
+        historical_actions.reserve(board_size * board_size);
     }
 
     void step(int index)
     {
         board[index] = player;
         player ^= 1;
+        historical_actions.push_back(index);
     }
 
     std::vector<int> getActions()
@@ -33,18 +36,30 @@ struct GobangBoard
         return actions;
     }
 
-    std::vector<int> encode()
+    std::vector<int> encode(int num_player_planes)
     {
-        // TODO: this is just a simple encoding
         auto flatten_size = board.size();
-        std::vector<int> encoded_state(3 * flatten_size);
-        int offset = 0;
+        std::vector<int> board_copy(board);
+        std::vector<int> encoded_state((num_player_planes * 2 + 1) * flatten_size);
+        int action_offset = 1; // historical_actions[-1]
+        for (int i = 0; i < num_player_planes; ++i)
+        {
+            for (int j = 0; j < flatten_size; j++)
+                encoded_state[i * flatten_size + j] = board_copy[j] == 0;
+            for (int j = 0; j < flatten_size; j++)
+                encoded_state[(i + num_player_planes) * flatten_size + j] = board_copy[j] == 1;
+
+            for (int j = 0; j < 2; j++)
+                if (action_offset <= historical_actions.size())
+                {
+                    int action = *(historical_actions.end() - action_offset);
+                    board_copy[action] = -1;
+                    action_offset++;
+                }
+        }
+
         for (int i = 0; i < flatten_size; i++)
-            encoded_state[offset++] = board[i] == 0;
-        for (int i = 0; i < flatten_size; i++)
-            encoded_state[offset++] = board[i] == 1;
-        for (int i = 0; i < flatten_size; i++)
-            encoded_state[offset++] = player;
+            encoded_state[num_player_planes * 2 * flatten_size + i] = player;
         return encoded_state;
     }
 
@@ -62,6 +77,10 @@ struct GobangBoard
             }
             std::cout << std::endl;
         }
+        std::cout << "Actions: ";
+        for (const auto &action : historical_actions)
+            std::cout << action << " ";
+        std::cout << std::endl;
     }
 };
 
@@ -148,8 +167,8 @@ public:
         return std::make_pair(false, -1);
     }
 
-    std::vector<int> getState()
+    std::vector<int> getState(int num_player_planes)
     {
-        return board.encode();
+        return board.encode(num_player_planes);
     }
 };
