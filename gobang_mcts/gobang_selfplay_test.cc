@@ -6,26 +6,45 @@
 TEST(GobangSelfPlayTest, Small)
 {
     int num_search = 20000;
-    GobangSelfPlay game(3, 3, 1.0f, num_search, 1e-5);
+    GobangSelfPlay game(3, 3, 3, 1.0f, num_search);
     int player = 0;
     int step_count = 0, display_count = 0;
     game.reset();
-    bool done = game.step({}, 0);
+    bool done = game.step({}, 0, 0);
     EXPECT_FALSE(done);
+
+    int best_action;
+    bool display_next = false;
     while (!done)
     {
         std::vector<float> prior_probs(3 * 3, .1f);
         float value = 0.0;
-        done = game.step(prior_probs, value);
+        if (display_next)
+            prior_probs.clear(); // no prior probs for the first search
+        done = game.step(prior_probs, value, best_action);
 
-        auto mcts_result = game.getSearchResult();
-        int check_value = std::accumulate(
-            mcts_result.begin(), mcts_result.end(), 0);
-        if (check_value + mcts_result.size() > 0) // not all -1
+        if (display_next)
         {
-            player ^= 1;
             game.display();
             display_count++;
+            display_next = false;
+            player ^= 1;
+        }
+
+        bool is_player_done = game.isPlayerDone();
+        if (is_player_done)
+        {
+            auto mcts_result = game.getSearchResult();
+            int visit_count = 0;
+            for (int i = 0; i < mcts_result.size(); i++)
+            {
+                if (mcts_result[i] > visit_count)
+                {
+                    best_action = i;
+                    visit_count = mcts_result[i];
+                }
+            }
+            display_next = true;
         }
         step_count++;
         // std::cout << "step: " << step_count << std::endl;

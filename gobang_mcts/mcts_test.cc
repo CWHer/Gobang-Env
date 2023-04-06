@@ -20,8 +20,9 @@ TEST(MCTSTest, Encode)
 
     std::shared_ptr<GobangEnv> mcts_env = std::make_shared<GobangEnv>(env);
     GobangMCTS mcts(1.0, 1000, mcts_env);
-    auto encoded_state = env.getState();
-    auto mcst_encoded_state = mcts.getState();
+    int num_player_planes = 4;
+    auto encoded_state = env.getState(num_player_planes);
+    auto mcst_encoded_state = mcts.getState(num_player_planes);
     EXPECT_EQ(encoded_state.size(), mcst_encoded_state.size());
     for (size_t i = 0; i < encoded_state.size(); ++i)
         EXPECT_EQ(encoded_state[i], mcst_encoded_state[i]);
@@ -86,7 +87,7 @@ TEST(MCTSTest, Search)
     EXPECT_EQ(visit_count_after - visit_count_before, num_search);
 
     // reset root
-    mcts->step(-1);
+    mcts->step(30, true);
     result = mcts->getResult(true);
     EXPECT_TRUE(result.empty());
 }

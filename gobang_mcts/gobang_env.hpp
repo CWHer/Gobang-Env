@@ -21,6 +21,8 @@ struct GobangBoard
 
     void step(int index)
     {
+        assert(index >= 0 && index < board.size());
+        assert(board[index] == -1);
         board[index] = player;
         player ^= 1;
         historical_actions.push_back(index);

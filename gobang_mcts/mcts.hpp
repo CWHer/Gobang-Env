@@ -152,6 +152,7 @@ public:
           root(std::make_shared<TreeNode>(std::weak_ptr<TreeNode>(), -1, 0, c_puct)),
           stat(env->getStat()), selected_node(nullptr), env(env)
     {
+        assert(num_search > 0);
     }
 
     bool selectNode()
@@ -214,9 +215,9 @@ public:
         return true;
     }
 
-    std::vector<int> getState()
+    std::vector<int> getState(int num_player_planes)
     {
-        return env->getState();
+        return env->getState(num_player_planes);
     }
 
     std::vector<std::pair<int, int>> getResult(bool ignore_unfinished = false)

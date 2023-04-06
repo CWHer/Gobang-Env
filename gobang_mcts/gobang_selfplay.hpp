@@ -19,15 +19,15 @@ private:
 
     // specs
     int board_size, win_length;
+    int num_player_planes;
     float c_puct;
     int num_search;
-    float inv_temp, dirichlet_alpha, dirichlet_eps;
 
     // stat
     GobangEnv gobang_env;
     std::vector<std::shared_ptr<GobangMCTS>> players;
     int current_player, winner;
-    bool is_done;
+    bool is_player_done, is_game_done;
 
     // episode data
     std::vector<std::pair<int, int>> actions_visits;
@@ -35,65 +35,16 @@ private:
 public:
     std::vector<int> historical_actions; // debug
 
-private:
-    std::vector<float> softMax(const std::vector<float> &logits)
-    {
-        float max_logit = std::numeric_limits<float>::lowest();
-        std::for_each(logits.begin(), logits.end(),
-                      [&](const float &value)
-                      { max_logit = std::max(max_logit, value); });
-        std::vector<float> probs(logits);
-        std::for_each(probs.begin(), probs.end(),
-                      [=](float &value)
-                      { value = std::exp(value - max_logit); });
-        float sum_probs = std::accumulate(probs.begin(), probs.end(), 0.0f);
-        std::for_each(probs.begin(), probs.end(),
-                      [=](float &value)
-                      { value /= sum_probs; });
-        return probs;
-    }
-
-    int selectAction()
-    {
-        // greedy
-        // int best_action = 0;
-        // int visit_count = 0;
-        // for (const auto &action_visit : actions_visits)
-        //     if (action_visit.second > visit_count)
-        //     {
-        //         best_action = action_visit.first;
-        //         visit_count = action_visit.second;
-        //     }
-        // return best_action;
-
-        // stochastic
-        // 1. softmax
-        auto logits = std::vector<float>(actions_visits.size(), 0.0f);
-        std::transform(actions_visits.begin(), actions_visits.end(), logits.begin(),
-                       [=](const std::pair<int, int> &action_visit)
-                       { return inv_temp * std::log(action_visit.second + 1e-10); });
-        auto probs = softMax(logits);
-        // 2. dirichlet noise
-        // TODO
-        auto dirichlet_noise = std::vector<float>(actions_visits.size(), 0.0f);
-
-        auto probs_with_noise = probs;
-        std::discrete_distribution<int> dist(probs_with_noise.begin(), probs_with_noise.end());
-        auto index = dist(rng);
-        auto selected_action = actions_visits[index].first;
-        return selected_action;
-    }
-
 public:
-    GobangSelfPlay(int board_size, int win_length,
-                   float c_puct, int num_search,
-                   float temp = 1.0, float dirichlet_alpha = 0.3, float dirichlet_eps = 0.25)
+    GobangSelfPlay(int board_size, int win_length, int num_player_planes,
+                   float c_puct, int num_search)
         : rng(std::random_device()()),
           board_size(board_size), win_length(win_length),
+          num_player_planes(num_player_planes),
           c_puct(c_puct), num_search(num_search),
-          inv_temp(1.0f / temp), dirichlet_alpha(dirichlet_alpha), dirichlet_eps(dirichlet_eps),
           gobang_env(board_size, win_length),
-          current_player(0), winner(-1), is_done(false)
+          current_player(0), winner(-1),
+          is_player_done(false), is_game_done(false)
     {
     }
 
@@ -106,37 +57,44 @@ public:
                 c_puct, num_search, std::make_shared<GobangEnv>(gobang_env)));
         current_player = 0;
         winner = -1;
-        is_done = false;
+        is_player_done = false;
+        is_game_done = false;
     }
 
-    bool step(std::vector<float> prior_probs, float value)
+    bool step(std::vector<float> prior_probs, float value, int action)
     {
-        actions_visits.clear();
         while (true)
         {
-            auto player = players[current_player];
-            auto done = player->search(prior_probs, value);
-            if (!done)
-                return false;
-            prior_probs.clear();
-            // player->display();
+            if (!is_player_done)
+            {
+                auto player = players[current_player];
+                auto done = player->search(prior_probs, value);
+                if (!done)
+                    return false;
+                // player->display();
 
-            // update game state
-            // std::cout << "Update game state" << std::endl;
-            actions_visits = player->getResult();
-            auto action = selectAction();
+                // update game state
+                // std::cout << "Update game state" << std::endl;
+                actions_visits = player->getResult();
+                is_player_done = true;
+                return false;
+            }
+            actions_visits.clear();
+            is_player_done = false;
             historical_actions.push_back(action);
             gobang_env.step(action);
             for (auto &player : players)
             {
                 // HACK: reset root here
                 //  avoid update gobang_env more than once in a single step
-                player->step(action, true);
-                // player.step(action);
+                // player->step(action, true);
+
+                // HACK: is_player_done ensures that gobang_env is updated only once
+                player->step(action);
             }
-            std::tie(is_done, winner) = gobang_env.checkFinished();
+            std::tie(is_game_done, winner) = gobang_env.checkFinished();
             assert(winner == -1 || winner == current_player);
-            if (is_done)
+            if (is_game_done)
                 return true;
 
             current_player ^= 1;
@@ -145,13 +103,18 @@ public:
 
     int getWinner()
     {
-        assert(is_done);
+        assert(is_game_done);
         return winner;
+    }
+
+    bool isPlayerDone()
+    {
+        return is_player_done;
     }
 
     std::vector<int> getState()
     {
-        return players[current_player]->getState();
+        return players[current_player]->getState(num_player_planes);
     }
 
     std::vector<int> getSearchResult()
