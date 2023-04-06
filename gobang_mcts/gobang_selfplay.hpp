@@ -7,7 +7,6 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
-#include <random>
 #include <unordered_map>
 
 class GobangSelfPlay
@@ -15,7 +14,6 @@ class GobangSelfPlay
 private:
     using GobangMCTS = MCTS<GobangEnv, GobangBoard>;
     static const int NUM_PLAYERS = 2;
-    std::mt19937 rng;
 
     // specs
     int board_size, win_length;
@@ -38,8 +36,7 @@ public:
 public:
     GobangSelfPlay(int board_size, int win_length, int num_player_planes,
                    float c_puct, int num_search)
-        : rng(std::random_device()()),
-          board_size(board_size), win_length(win_length),
+        : board_size(board_size), win_length(win_length),
           num_player_planes(num_player_planes),
           c_puct(c_puct), num_search(num_search),
           gobang_env(board_size, win_length),
@@ -114,7 +111,9 @@ public:
 
     std::vector<int> getState()
     {
-        return players[current_player]->getState(num_player_planes);
+        if (!is_player_done) // for inference
+            return players[current_player]->getState(num_player_planes);
+        return gobang_env.getState(num_player_planes); // for training
     }
 
     std::vector<int> getSearchResult()

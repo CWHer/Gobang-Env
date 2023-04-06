@@ -14,19 +14,20 @@ namespace GobangSpace
         {
             return MakeDict(
                 "board_size"_.Bind(15), "win_length"_.Bind(5),
-                "c_puct"_.Bind(1.0), "num_search"_.Bind(1000),
-                "temp"_.Bind(1.0), "dirichlet_alpha"_.Bind(0.3), "dirichlet_eps"_.Bind(0.25));
+                "num_player_planes"_.Bind(4),
+                "c_puct"_.Bind(1.0), "num_search"_.Bind(1000));
         }
 
         template <typename Config>
         static decltype(auto) StateSpec(const Config &conf)
         {
-            // TODO: update encoder
             return MakeDict(
-                "obs:state"_.Bind(Spec<int>({3, conf["board_size"_], conf["board_size"_]})),
+                "obs:state"_.Bind(Spec<int>({conf["num_player_planes"_] * 2 + 1,
+                                             conf["board_size"_], conf["board_size"_]})),
                 "obs:mcts_result"_.Bind(Spec<int>({conf["board_size"_] * conf["board_size"_]})),
-                "info:winner"_.Bind(Spec<int>({1})),
-                "info:player_step_count"_.Bind(Spec<int>({1})));
+                "info:is_player_done"_.Bind(Spec<bool>({})),
+                "info:player_step_count"_.Bind(Spec<int>({})),
+                "info:winner"_.Bind(Spec<int>({})));
         }
 
         template <typename Config>
@@ -34,7 +35,7 @@ namespace GobangSpace
         {
             return MakeDict(
                 "prior_probs"_.Bind(Spec<float>({conf["board_size"_] * conf["board_size"_]})),
-                "value"_.Bind(Spec<float>({1})));
+                "value"_.Bind(Spec<float>({})), "action"_.Bind(Spec<int>({})));
         }
     };
 
@@ -44,9 +45,9 @@ namespace GobangSpace
     {
     protected:
         int board_size, win_length;
+        int num_player_planes;
         float c_puct;
         int num_search;
-        float inv_temp, dirichlet_alpha, dirichlet_eps;
 
         std::shared_ptr<GobangSelfPlay> game;
         bool done;
@@ -59,19 +60,23 @@ namespace GobangSpace
         {
             State state = Allocate();
             auto state_ = game->getState();
-            for (int index = 0, k = 0; k < 3; ++k)
+            for (int index = 0, k = 0; k < num_player_planes * 2 + 1; ++k)
                 for (int i = 0; i < board_size; i++)
                     for (int j = 0; j < board_size; j++, index++)
                         state["obs:state"_](k, i, j) = state_[index];
-            auto mcts_result_ = game->getSearchResult();
-            for (int i = 0; i < mcts_result_.size(); i++)
-                state["obs:mcts_result"_][i] = mcts_result_[i];
+
+            bool is_player_done = game->isPlayerDone();
+            if (is_player_done)
+            {
+                auto mcts_result_ = game->getSearchResult();
+                for (int i = 0; i < mcts_result_.size(); i++)
+                    state["obs:mcts_result"_][i] = mcts_result_[i];
+            }
+            state["info:is_player_done"_] = is_player_done;
             state["info:winner"_] = done ? game->getWinner() : -1;
 
             // debug
-            int check_value = std::accumulate(
-                mcts_result_.begin(), mcts_result_.end(), 0);
-            if (check_value + mcts_result_.size() > 0)
+            if (is_player_done)
                 player_step_count++;
             state["info:player_step_count"_] = player_step_count;
             if (done)
@@ -89,11 +94,9 @@ namespace GobangSpace
             : Env<GobangEnvSpec>(spec, env_id),
               board_size(spec.config["board_size"_]),
               win_length(spec.config["win_length"_]),
+              num_player_planes(spec.config["num_player_planes"_]),
               c_puct(spec.config["c_puct"_]),
-              num_search(spec.config["num_search"_]),
-              inv_temp(spec.config["temp"_]),
-              dirichlet_alpha(spec.config["dirichlet_alpha"_]),
-              dirichlet_eps(spec.config["dirichlet_eps"_])
+              num_search(spec.config["num_search"_])
         {
         }
 
@@ -105,11 +108,10 @@ namespace GobangSpace
         void Reset() override
         {
             game = std::make_shared<GobangSelfPlay>(
-                board_size, win_length,
-                c_puct, num_search,
-                inv_temp, dirichlet_alpha, dirichlet_eps);
+                board_size, win_length, num_player_planes,
+                c_puct, num_search);
             game->reset();
-            done = game->step({}, 0);
+            done = game->step({}, 0, 0);
             player_step_count = 0;
             assert(!done);
             writeState();
@@ -117,10 +119,14 @@ namespace GobangSpace
 
         void Step(const Action &action) override
         {
-            std::vector<float> prior_probs(board_size * board_size, 0.0f);
-            for (int i = 0; i < prior_probs.size(); i++)
-                prior_probs[i] = action["prior_probs"_][i];
-            done = game->step(prior_probs, action["value"_]);
+            std::vector<float> prior_probs;
+            if (!game->isPlayerDone())
+            {
+                prior_probs.resize(board_size * board_size);
+                for (int i = 0; i < prior_probs.size(); i++)
+                    prior_probs[i] = action["prior_probs"_][i];
+            }
+            done = game->step(prior_probs, action["value"_], action["action"_]);
             writeState();
         }
     };

@@ -17,7 +17,6 @@ TEST(GobangEnvPoolTest, Single)
     config["win_length"_] = 3;
     config["c_puct"_] = 1.0;
     config["num_search"_] = 20000;
-    config["temp"_] = 1e-5;
 
     GobangSpace::GobangEnvSpec spec(config);
     GobangSpace::GobangEnvPool envpool(spec);
@@ -27,18 +26,26 @@ TEST(GobangEnvPoolTest, Single)
     envpool.Reset(all_env_ids);
     int step_count = 0;
     int player_step = 0;
+    int best_action;
     while (true)
     {
         auto state_vec = envpool.Recv();
         GobangState state(&state_vec);
         // auto state_keys = state.StaticKeys();
-        int check_value = 0;
-        for (int i = 0; i < 3 * 3; ++i)
-            check_value += static_cast<int>(state["obs:mcts_result"_][0][i]);
-        if (check_value + 3 * 3 > 0)
+        if (state["info:is_player_done"_][0])
         {
             player_step++;
             std::cout << "Player step: " << player_step << std::endl;
+            auto mcts_result = state["obs:mcts_result"_][0];
+            int visit_count = 0;
+            for (int i = 0; i < 3 * 3; i++)
+            {
+                if (static_cast<int>(mcts_result[i]) > visit_count)
+                {
+                    best_action = i;
+                    visit_count = mcts_result[i];
+                }
+            }
         }
 
         if (state["done"_][0])
@@ -51,6 +58,7 @@ TEST(GobangEnvPoolTest, Single)
         std::vector<Array> raw_action({Array(Spec<int>({batch_size})),
                                        Array(Spec<int>({batch_size})),
                                        Array(Spec<float>({batch_size, 3 * 3})),
+                                       Array(Spec<float>({batch_size})),
                                        Array(Spec<float>({batch_size}))});
         GobangAction action(&raw_action);
         // auto action_keys = action.StaticKeys();
@@ -61,6 +69,7 @@ TEST(GobangEnvPoolTest, Single)
             for (int j = 0; j < 3 * 3; ++j)
                 action["prior_probs"_][i][j] = .1f;
             action["value"_][i] = 0;
+            action["action"_][i] = best_action;
         }
         envpool.Send(action);
 
