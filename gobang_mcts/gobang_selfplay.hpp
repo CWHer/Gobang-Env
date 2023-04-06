@@ -1,5 +1,6 @@
 #pragma once
 
+#include "envpool/gobang_mcts/utils.hpp"
 #include "envpool/gobang_mcts/mcts.hpp"
 #include "envpool/gobang_mcts/gobang_env.hpp"
 
@@ -90,7 +91,9 @@ public:
                 player->step(action);
             }
             std::tie(is_game_done, winner) = gobang_env.checkFinished();
-            assert(winner == -1 || winner == current_player);
+            assertMsg(winner == -1 || winner == current_player,
+                      "Winner is not current player",
+                      __FILE__, __LINE__);
             if (is_game_done)
                 return true;
 
@@ -100,7 +103,8 @@ public:
 
     int getWinner()
     {
-        assert(is_game_done);
+        assertMsg(is_game_done, "Game is not done yet",
+                  __FILE__, __LINE__);
         return winner;
     }
 

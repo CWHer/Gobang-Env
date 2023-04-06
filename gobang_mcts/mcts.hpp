@@ -7,6 +7,8 @@
 #include <limits>
 #include <iostream>
 
+#include "envpool/gobang_mcts/utils.hpp"
+
 struct PUCT
 {
     float prior_prob;
@@ -73,7 +75,9 @@ struct TreeNode : public std::enable_shared_from_this<TreeNode>
 
     std::shared_ptr<TreeNode> select()
     {
-        assert(!this->isLeaf());
+        assertMsg(!this->isLeaf(),
+                  "Leaf node has no child to select",
+                  __FILE__, __LINE__);
         std::shared_ptr<TreeNode> selected_child = nullptr;
         auto visit_count = this->getVisitCount();
         float best_value = std::numeric_limits<float>::lowest();
@@ -152,7 +156,9 @@ public:
           root(std::make_shared<TreeNode>(std::weak_ptr<TreeNode>(), -1, 0, c_puct)),
           stat(env->getStat()), selected_node(nullptr), env(env)
     {
-        assert(num_search > 0);
+        assertMsg(num_search > 0,
+                  "num_search must be positive",
+                  __FILE__, __LINE__);
     }
 
     bool selectNode()
@@ -222,7 +228,8 @@ public:
 
     std::vector<std::pair<int, int>> getResult(bool ignore_unfinished = false)
     {
-        assert(ignore_unfinished || root->getVisitCount() >= num_search);
+        assertMsg(ignore_unfinished || root->getVisitCount() >= num_search,
+                  "MCTS search not finished", __FILE__, __LINE__);
         std::vector<std::pair<int, int>> actions_visits;
         for (const auto &child : root->children)
             actions_visits.push_back(

@@ -3,8 +3,16 @@ load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "utils",
+    hdrs = ["utils.hpp"],
+)
+
+cc_library(
     name = "gobang_env",
     hdrs = ["gobang_env.hpp"],
+    deps = [
+        ":utils",
+    ],
 )
 
 cc_test(
@@ -19,6 +27,9 @@ cc_test(
 cc_library(
     name = "mcts",
     hdrs = ["mcts.hpp"],
+    deps = [
+        ":utils",
+    ],
 )
 
 cc_test(
@@ -37,6 +48,7 @@ cc_library(
     deps = [
         ":gobang_env",
         ":mcts",
+        ":utils",
     ],
 )
 
@@ -54,6 +66,7 @@ cc_library(
     hdrs = ["gobang_envpool.hpp"],
     deps = [
         ":gobang_selfplay",
+        ":utils",
         "//envpool/core:async_envpool",
     ],
 )

@@ -5,6 +5,8 @@
 #include <cassert>
 #include <utility>
 
+#include "envpool/gobang_mcts/utils.hpp"
+
 struct GobangBoard
 {
     int board_size;
@@ -21,8 +23,12 @@ struct GobangBoard
 
     void step(int index)
     {
-        assert(index >= 0 && index < board.size());
-        assert(board[index] == -1);
+        assertMsg(index >= 0 && index < board.size(),
+                  "Invalid index " + std::to_string(index),
+                  __FILE__, __LINE__);
+        assertMsg(board[index] == -1,
+                  "Invalid index " + std::to_string(index),
+                  __FILE__, __LINE__);
         board[index] = player;
         player ^= 1;
         historical_actions.push_back(index);
@@ -133,7 +139,9 @@ public:
 
     std::pair<bool, int> checkFinished()
     {
-        assert(winner == -1);
+        assertMsg(winner == -1,
+                  "Game has already finished",
+                  __FILE__, __LINE__);
         static const int dx[] = {1, 1, 0, -1};
         static const int dy[] = {0, 1, 1, 1};
         int blank_count = 0;

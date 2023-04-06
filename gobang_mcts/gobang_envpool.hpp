@@ -3,6 +3,7 @@
 #include "envpool/core/async_envpool.h"
 #include "envpool/core/env.h"
 
+#include "envpool/gobang_mcts/utils.hpp"
 #include "envpool/gobang_mcts/gobang_selfplay.hpp"
 
 namespace GobangSpace
@@ -83,7 +84,9 @@ namespace GobangSpace
             state["info:player_step_count"_] = player_step_count;
             if (done)
             {
-                assert(player_step_count == game->historical_actions.size());
+                assertMsg(player_step_count == game->historical_actions.size(),
+                          "Player step count should be equal to historical actions size",
+                          __FILE__, __LINE__);
                 if (verbose_output)
                 {
                     std::cout << "Player step count: " << player_step_count << std::endl;
@@ -119,7 +122,9 @@ namespace GobangSpace
             game->reset();
             done = game->step({}, 0, 0);
             player_step_count = 0;
-            assert(!done);
+            assertMsg(!done,
+                      "Game should not be done after reset",
+                      __FILE__, __LINE__);
             writeState();
             if (verbose_output)
             {
