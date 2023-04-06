@@ -69,7 +69,7 @@ TEST(GobangEnvPoolTest, Single)
             for (int j = 0; j < 3 * 3; ++j)
                 action["prior_probs"_][i][j] = .1f;
             action["value"_][i] = 0;
-            action["action"_][i] = best_action;
+            action["selected_action"_][i] = best_action;
         }
         envpool.Send(action);
 

@@ -15,7 +15,8 @@ namespace GobangSpace
             return MakeDict(
                 "board_size"_.Bind(15), "win_length"_.Bind(5),
                 "num_player_planes"_.Bind(4),
-                "c_puct"_.Bind(1.0), "num_search"_.Bind(1000));
+                "c_puct"_.Bind(1.0), "num_search"_.Bind(1000),
+                "verbose_output"_.Bind(false));
         }
 
         template <typename Config>
@@ -35,7 +36,7 @@ namespace GobangSpace
         {
             return MakeDict(
                 "prior_probs"_.Bind(Spec<float>({conf["board_size"_] * conf["board_size"_]})),
-                "value"_.Bind(Spec<float>({})), "action"_.Bind(Spec<int>({})));
+                "value"_.Bind(Spec<float>({})), "selected_action"_.Bind(Spec<int>({})));
         }
     };
 
@@ -54,6 +55,7 @@ namespace GobangSpace
 
         // debug
         int player_step_count = 0;
+        bool verbose_output;
 
     private:
         void writeState()
@@ -82,10 +84,13 @@ namespace GobangSpace
             if (done)
             {
                 assert(player_step_count == game->historical_actions.size());
-                // std::cout << "Player step count: " << player_step_count << std::endl;
-                // std::cout << "Env id: " << env_id_ << std::endl;
-                // game->display();
-                // std::cout << std::endl;
+                if (verbose_output)
+                {
+                    std::cout << "Player step count: " << player_step_count << std::endl;
+                    std::cout << "Env id: " << env_id_ << std::endl;
+                    game->display();
+                    std::cout << std::endl;
+                }
             }
         }
 
@@ -96,7 +101,8 @@ namespace GobangSpace
               win_length(spec.config["win_length"_]),
               num_player_planes(spec.config["num_player_planes"_]),
               c_puct(spec.config["c_puct"_]),
-              num_search(spec.config["num_search"_])
+              num_search(spec.config["num_search"_]),
+              verbose_output(spec.config["verbose_output"_])
         {
         }
 
@@ -115,10 +121,19 @@ namespace GobangSpace
             player_step_count = 0;
             assert(!done);
             writeState();
+            if (verbose_output)
+            {
+                std::cout << "Env: " << env_id_ << " reset" << std::endl;
+            }
         }
 
         void Step(const Action &action) override
         {
+            if (verbose_output && game->isPlayerDone())
+            {
+                std::cout << "Env: " << env_id_
+                          << " step: " << static_cast<int>(action["selected_action"_]) << std::endl;
+            }
             std::vector<float> prior_probs;
             if (!game->isPlayerDone())
             {
@@ -126,7 +141,8 @@ namespace GobangSpace
                 for (int i = 0; i < prior_probs.size(); i++)
                     prior_probs[i] = action["prior_probs"_][i];
             }
-            done = game->step(prior_probs, action["value"_], action["action"_]);
+            done = game->step(prior_probs, action["value"_],
+                              action["selected_action"_]);
             writeState();
         }
     };
