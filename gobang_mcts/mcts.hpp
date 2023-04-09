@@ -202,7 +202,9 @@ public:
 
     bool search(std::vector<float> prior_probs, float value)
     {
-        if (!prior_probs.empty())
+        // NOTE: selectNode before expand
+        //  would ignore prior_probs & value if selected_node is nullptr
+        if (selected_node != nullptr)
         {
             expandNode(prior_probs);
             backPropagate(value);
@@ -247,6 +249,7 @@ public:
         env->step(action);
         stat = env->getStat();
         current_search = 0;
+        selected_node = nullptr;
     }
 
     void display()

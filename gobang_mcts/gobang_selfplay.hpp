@@ -122,6 +122,7 @@ public:
 
     std::vector<int> getSearchResult()
     {
+        // NOTE: use -1 to indicate invalid action
         std::vector<int> visit_counts(board_size * board_size, -1);
         for (const auto &action_visit : actions_visits)
             visit_counts[action_visit.first] = action_visit.second;

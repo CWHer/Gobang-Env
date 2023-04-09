@@ -120,11 +120,8 @@ namespace GobangSpace
                 board_size, win_length, num_player_planes,
                 c_puct, num_search);
             game->reset();
-            done = game->step({}, 0, 0);
+            done = false;
             player_step_count = 0;
-            assertMsg(!done,
-                      "Game should not be done after reset",
-                      __FILE__, __LINE__);
             writeState();
             if (verbose_output)
             {
@@ -142,6 +139,7 @@ namespace GobangSpace
             std::vector<float> prior_probs;
             if (!game->isPlayerDone())
             {
+                // NOTE: prior_probs & values are of no use when mcts is not done
                 prior_probs.resize(board_size * board_size);
                 for (int i = 0; i < prior_probs.size(); i++)
                     prior_probs[i] = action["prior_probs"_][i];
