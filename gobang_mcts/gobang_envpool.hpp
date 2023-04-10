@@ -17,7 +17,13 @@ namespace GobangSpace
                 "board_size"_.Bind(15), "win_length"_.Bind(5),
                 "num_player_planes"_.Bind(4),
                 "c_puct"_.Bind(1.0), "num_search"_.Bind(1000),
+                "delay_epsilon"_.Bind(0.0),
                 "verbose_output"_.Bind(false));
+            // Why do we need delay_epsilon?
+            // e.g., num_envs = 400, bs = 128, num_search = 100, fixed_len = 40
+            //  the 1st policy need ~ 400 / 128 * (40 - 1) * 100 ~ 12,000 steps to collect the first 10 episode
+            //  however, the 2nd policy only need ~ 400 / 128 * 1 * 100 ~ 300 steps to collect the next 10 episode
+            //  thus, this would cause unbalanced # sample
         }
 
         template <typename Config>
@@ -53,6 +59,9 @@ namespace GobangSpace
 
         std::shared_ptr<GobangSelfPlay> game;
         bool done;
+
+        // delay
+        int delay_steps;
 
         // debug
         int player_step_count = 0;
@@ -105,8 +114,14 @@ namespace GobangSpace
               num_player_planes(spec.config["num_player_planes"_]),
               c_puct(spec.config["c_puct"_]),
               num_search(spec.config["num_search"_]),
+              delay_steps(spec.config["delay_epsilon"_] * env_id),
               verbose_output(spec.config["verbose_output"_])
         {
+            if (verbose_output)
+            {
+                std::cout << "Env: " << env_id_
+                          << " delay steps: " << delay_steps << std::endl;
+            }
         }
 
         bool IsDone() override
@@ -131,6 +146,18 @@ namespace GobangSpace
 
         void Step(const Action &action) override
         {
+            if (delay_steps > 0)
+            {
+                delay_steps--;
+                if (verbose_output)
+                {
+                    std::cout << "Env: " << env_id_
+                              << " remaining delay steps: " << delay_steps << std::endl;
+                }
+                writeState();
+                return;
+            }
+
             if (verbose_output && game->isPlayerDone())
             {
                 std::cout << "Env: " << env_id_
