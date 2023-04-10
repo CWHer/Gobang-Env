@@ -214,6 +214,102 @@ class GobangTest(unittest.TestCase):
                         and np.sum(res[k + num_player_planes]) <= 1
                     )
 
+    @unittest.skip("Too slow")
+    def testDelay(self):
+        num_envs = 250
+        batch_size = 100
+        num_threads = 10
+        num_search = 400
+        estimated_len = 15 * 15
+        num_explore = 5
+        delay_epsilon = estimated_len * num_search / batch_size
+        print("[INFO]: delay_epsilon", delay_epsilon)
+        env = envpool.make_gym(
+            "GobangSelfPlay", num_envs=num_envs,
+            batch_size=batch_size, num_threads=num_threads,
+            num_search=num_search, delay_epsilon=delay_epsilon
+        )
+
+        n_episodes = 1000
+        episode_count = 0
+        episode_steps = [0 for _ in range(n_episodes + 1)]
+        step_count = 0
+
+        player_step_count = [0 for _ in range(num_envs)]
+        selected_action = np.zeros((num_envs, ), dtype=np.int32)
+
+        env.async_reset()
+        with tqdm.tqdm(total=n_episodes) as pbar:
+            while episode_count < n_episodes:
+                obs, reward, terminated, truncated, info = env.recv()
+                self.assertTrue(np.logical_not(np.all(truncated)))
+                is_player_done = info["is_player_done"]
+                for i, index in enumerate(info["env_id"]):
+                    if is_player_done[i]:
+                        player_step_count[index] += 1
+                        mcts_result = obs.mcts_result[i]
+                        mcts_result[mcts_result < 0] = 0
+                        selected_action[index] = np.argmax(mcts_result) \
+                            if player_step_count[index] > num_explore \
+                            else np.random.choice(np.arange(15 * 15), p=mcts_result / np.sum(mcts_result))
+
+                for i, index in enumerate(info["env_id"]):
+                    if terminated[i] and episode_count < n_episodes:
+                        pbar.update(1)
+                        episode_count += 1
+                        episode_steps[episode_count] = step_count
+                        self.assertEqual(
+                            player_step_count[index], info["player_step_count"][i],
+                            f"Wrong player_step_count at env {index}"
+                        )
+                        player_step_count[index] = 0
+
+                env_id = info["env_id"]
+                actions = {
+                    "prior_probs": 0.1 * np.ones((batch_size, 15 * 15), dtype=np.float32),
+                    "value": 0.1 * np.ones((batch_size, ), dtype=np.float32),
+                    "selected_action": selected_action[env_id]
+                }
+                env.send(actions, env_id)
+                step_count += 1
+
+        episode_steps = np.array(episode_steps)
+        import pickle
+        with open("{}_{}_{}_{:.2f}.pkl".format(
+                num_envs, batch_size, num_search, delay_epsilon), "wb") as f:
+            pickle.dump(episode_steps, f)
+
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+        plt.subplot(1, 3, 1)
+        plt.plot(episode_steps)
+        plt.title("delay_epsilon = {}".format(delay_epsilon))
+
+        x = np.arange(n_episodes + 1)
+        y = np.array(episode_steps)
+        A = np.vstack([x, np.ones(len(x))]).T
+        m, c = np.linalg.lstsq(A, y, rcond=None)[0]
+        print("[INFO]: m, c", m, c)
+        plt.plot(x, m * x + c, 'r')
+
+        plt.subplot(1, 3, 2)
+        n_episode_per_collect = 10
+        episode_steps = np.diff(episode_steps)
+        episode_steps_sum = episode_steps\
+            .reshape(-1, n_episode_per_collect).sum(axis=1)
+
+        plt.plot(episode_steps_sum)
+        print(
+            f"[INFO]: mean {np.mean(episode_steps_sum)}\n"
+            f"[INFO]: std {np.std(episode_steps_sum)}\n"
+            f"[INFO]: std / # search = {np.std(episode_steps_sum) / num_search}\n"
+        )
+
+        plt.subplot(1, 3, 3)
+        plt.hist(episode_steps_sum, bins=20)
+
+        plt.savefig("delay_epsilon_{:.2f}.png".format(delay_epsilon))
+
     def testThroughput(self):
         num_envs = 400
         batch_size = 128
