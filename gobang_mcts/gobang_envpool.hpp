@@ -72,10 +72,12 @@ namespace GobangSpace
         {
             State state = Allocate();
             auto state_ = game->getState();
-            for (int index = 0, k = 0; k < num_player_planes * 2 + 1; ++k)
-                for (int i = 0; i < board_size; i++)
-                    for (int j = 0; j < board_size; j++, index++)
-                        state["obs:state"_](k, i, j) = state_[index];
+            int *state_data = reinterpret_cast<int *>(state["obs:state"_].Data());
+            std::copy(state_.begin(), state_.end(), state_data);
+            // for (int index = 0, k = 0; k < num_player_planes * 2 + 1; ++k)
+            //     for (int i = 0; i < board_size; i++)
+            //         for (int j = 0; j < board_size; j++, index++)
+            //             state["obs:state"_](k, i, j) = state_[index];
 
             bool is_player_done = game->isPlayerDone();
             if (is_player_done)
@@ -168,8 +170,8 @@ namespace GobangSpace
             {
                 // NOTE: prior_probs & values are of no use when mcts is not done
                 prior_probs.resize(board_size * board_size);
-                for (int i = 0; i < prior_probs.size(); i++)
-                    prior_probs[i] = action["prior_probs"_][i];
+                float *prior_probs_data = reinterpret_cast<float *>(action["prior_probs"_].Data());
+                std::copy(prior_probs_data, prior_probs_data + prior_probs.size(), prior_probs.begin());
             }
             done = game->step(prior_probs, action["value"_],
                               action["selected_action"_]);

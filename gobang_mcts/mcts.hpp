@@ -93,8 +93,9 @@ struct TreeNode : public std::enable_shared_from_this<TreeNode>
         return selected_child;
     }
 
-    void expand(std::vector<std::pair<int, float>> &actions_probs, float c_puct)
+    void expand(const std::vector<std::pair<int, float>> &actions_probs, float c_puct)
     {
+        children.reserve(actions_probs.size());
         for (const auto &action_prob : actions_probs)
         {
             children.push_back(std::make_shared<TreeNode>(
@@ -177,11 +178,12 @@ public:
         return result.first;
     }
 
-    void expandNode(std::vector<float> prior_probs)
+    void expandNode(const std::vector<float> &prior_probs)
     {
         // MCTS: expand
         auto valid_actions = env->getActions();
         std::vector<std::pair<int, float>> actions_probs;
+        actions_probs.reserve(valid_actions.size());
         for (const auto &action : valid_actions)
             actions_probs.push_back(std::make_pair(action, prior_probs[action]));
         selected_node->expand(actions_probs, c_puct);
@@ -200,7 +202,7 @@ public:
         }
     }
 
-    bool search(std::vector<float> prior_probs, float value)
+    bool search(const std::vector<float> &prior_probs, float value)
     {
         // NOTE: selectNode before expand
         //  would ignore prior_probs & value if selected_node is nullptr
