@@ -313,19 +313,20 @@ class GobangTest(unittest.TestCase):
     def testThroughput(self):
         num_envs = 400
         batch_size = 128
-        num_threads = 10
-        num_search = 10
+        num_threads = 2
+        num_search = 500
         env = envpool.make_gym(
             "GobangSelfPlay", num_envs=num_envs,
             batch_size=batch_size, num_threads=num_threads,
             num_search=num_search,
+            thread_affinity_offset=0,
         )
 
         actions = {
             "prior_probs": 0.1 * np.ones((batch_size, 15 * 15), dtype=np.float32),
             "value": 0.1 * np.ones((batch_size, ), dtype=np.float32),
         }
-        n_steps = 1000
+        n_steps = 5000
         env.async_reset()
         start = time.time()
         for _ in tqdm.trange(n_steps):
