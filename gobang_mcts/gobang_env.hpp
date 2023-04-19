@@ -181,4 +181,9 @@ public:
     {
         return board.encode(num_player_planes);
     }
+
+    int actionShape() const
+    {
+        return board.board_size * board.board_size;
+    }
 };
