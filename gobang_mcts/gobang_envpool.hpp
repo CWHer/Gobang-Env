@@ -83,8 +83,8 @@ namespace GobangSpace
             if (is_player_done)
             {
                 auto mcts_result_ = game->getSearchResult();
-                for (int i = 0; i < mcts_result_.size(); i++)
-                    state["obs:mcts_result"_][i] = mcts_result_[i];
+                int *mcts_result_data = reinterpret_cast<int *>(state["obs:mcts_result"_].Data());
+                std::copy(mcts_result_.begin(), mcts_result_.end(), mcts_result_data);
             }
             state["info:is_player_done"_] = is_player_done;
             state["info:winner"_] = done ? game->getWinner() : -1;
