@@ -67,17 +67,13 @@ public:
 
         TreeNode &operator*()
         {
-            assertMsg(!empty(),
-                      "Cannot dereference an empty reference",
-                      __FILE__, __LINE__);
+            assertMsg(!empty(), "Cannot dereference an empty reference");
             return pool.lock()->nodes[index];
         }
 
         const TreeNode &operator*() const
         {
-            assertMsg(!empty(),
-                      "Cannot dereference an empty reference",
-                      __FILE__, __LINE__);
+            assertMsg(!empty(), "Cannot dereference an empty reference");
             return pool.lock()->nodes[index];
         }
     };
@@ -88,8 +84,7 @@ public:
     void reserve(int size, Args &&...args)
     {
         assertMsg(nodes.empty() && size > 0,
-                  "Cannot reserve space for TreeNodePool twice",
-                  __FILE__, __LINE__);
+                  "Cannot reserve space for TreeNodePool twice");
         nodes.reserve(size);
         for (int i = 0; i < size; ++i)
             nodes.emplace_back(shared_from_this(), i, std::forward<Args>(args)...);
@@ -98,8 +93,7 @@ public:
     Reference allocate()
     {
         assertMsg(allocated_count < nodes.size(),
-                  "No more space to allocate",
-                  __FILE__, __LINE__);
+                  "No more space to allocate");
         return Reference(shared_from_this(), allocated_count++);
     }
 
@@ -141,17 +135,13 @@ public:
 
         std::vector<TreeNodePool::Reference> &operator*()
         {
-            assertMsg(!empty(),
-                      "Cannot dereference an empty reference",
-                      __FILE__, __LINE__);
+            assertMsg(!empty(), "Cannot dereference an empty reference");
             return pool.lock()->ref_vectors[index];
         }
 
         const std::vector<TreeNodePool::Reference> &operator*() const
         {
-            assertMsg(!empty(),
-                      "Cannot dereference an empty reference",
-                      __FILE__, __LINE__);
+            assertMsg(!empty(), "Cannot dereference an empty reference");
             return pool.lock()->ref_vectors[index];
         }
     };
@@ -161,16 +151,14 @@ public:
     void reserve(int size)
     {
         assertMsg(ref_vectors.empty() && size > 0,
-                  "Cannot reserve space for RefArrayPool twice",
-                  __FILE__, __LINE__);
+                  "Cannot reserve space for RefArrayPool twice");
         ref_vectors.resize(size);
     }
 
     Reference allocate()
     {
         assertMsg(allocated_count < ref_vectors.size(),
-                  "No more space to allocate",
-                  __FILE__, __LINE__);
+                  "No more space to allocate");
         return Reference(shared_from_this(), allocated_count++);
     }
 
@@ -234,9 +222,7 @@ struct TreeNode
 
     TreeNodePool::Reference select()
     {
-        assertMsg(!this->isLeaf(),
-                  "Leaf node has no child to select",
-                  __FILE__, __LINE__);
+        assertMsg(!this->isLeaf(), "Leaf node has no child to select");
         TreeNodePool::Reference selected_child;
         auto visit_count = this->getVisitCount();
         float best_value = std::numeric_limits<float>::lowest();
@@ -255,8 +241,7 @@ struct TreeNode
     void expand(const std::vector<std::pair<int, float>> &actions_probs, float c_puct)
     {
         assertMsg(!tree_node_pool.expired() && !ref_array_pool.expired(),
-                  "Reference to TreeNodePool or RefVectorPool is expired",
-                  __FILE__, __LINE__);
+                  "Reference to TreeNodePool or RefVectorPool is expired");
 
         auto this_ref = TreeNodePool::Reference(tree_node_pool, index_of_this);
         children_refs = ref_array_pool.lock()->allocate();
@@ -324,9 +309,7 @@ public:
           c_puct(c_puct), num_search(num_search), current_search(0),
           stat(env->getStat()), env(env)
     {
-        assertMsg(num_search > 0,
-                  "num_search must be positive",
-                  __FILE__, __LINE__);
+        assertMsg(num_search > 0, "num_search must be positive");
 
         ref_array_pool->reserve(num_search);
         tree_node_pool->reserve(num_search * env->actionShape(), ref_array_pool);
@@ -406,7 +389,7 @@ public:
     std::vector<std::pair<int, int>> getResult(bool ignore_unfinished = false)
     {
         assertMsg(ignore_unfinished || (*root_ref).getVisitCount() >= num_search,
-                  "MCTS search not finished", __FILE__, __LINE__);
+                  "MCTS search not finished");
         std::vector<std::pair<int, int>> actions_visits;
         for (const auto &child_ref : (*(*root_ref).children_refs))
             actions_visits.push_back(
@@ -416,9 +399,7 @@ public:
 
     void step(int action, bool reset_root = false)
     {
-        assertMsg(reset_root,
-                  "reset_root = false not implemented",
-                  __FILE__, __LINE__);
+        assertMsg(reset_root, "reset_root = false not implemented");
         env->setStat(stat);
         env->step(action);
         stat = env->getStat();

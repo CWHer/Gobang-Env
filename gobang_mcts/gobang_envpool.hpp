@@ -96,8 +96,7 @@ namespace GobangSpace
             if (done)
             {
                 assertMsg(player_step_count == game->historical_actions.size(),
-                          "Player step count should be equal to historical actions size",
-                          __FILE__, __LINE__);
+                          "Player step count should be equal to historical actions size");
                 if (verbose_output)
                 {
                     std::cout << "Player step count: " << player_step_count << std::endl;

@@ -3,8 +3,14 @@
 #include <iostream>
 #include <string>
 
-void assertMsg(bool condition, const std::string &msg,
-               const std::string &file, int line)
+#ifdef NDEBUG
+#define assertMsg(condition, msg) ;
+#else
+#define assertMsg(condition, msg) assertMsgImpl(condition, msg, __FILE__, __LINE__)
+#endif
+
+void assertMsgImpl(bool condition, const std::string &msg,
+                   const std::string &file, int line)
 {
     if (!condition)
     {
