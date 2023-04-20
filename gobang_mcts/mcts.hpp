@@ -109,19 +109,94 @@ public:
     }
 };
 
+class RefVectorPool : public std::enable_shared_from_this<RefVectorPool>
+{
+    // NOTE: HACK: why do we need RefVectorPool?
+    // TreeNodePool::clear method can't free the memory of std::vector (owned by each TreeNode).
+    // which would cause excessive memory usage. So we use RefVectorPool to manage the memory.
+private:
+    std::vector<std::vector<TreeNodePool::Reference>> ref_vectors;
+    int allocated_count;
+
+public:
+    class Reference
+    {
+        // NOTE: this is a reference to a std::vector<TreeNodePool::Reference> in RefVectorPool
+        friend class RefVectorPool;
+
+    private:
+        std::weak_ptr<RefVectorPool> pool;
+        int index;
+
+    public:
+        Reference() : index(-1) {}
+        Reference(std::weak_ptr<RefVectorPool> pool, int index) : pool(pool), index(index) {}
+        Reference(const Reference &ref) : pool(ref.pool), index(ref.index) {}
+
+        void clear() { index = -1; }
+        bool empty() const
+        {
+            return pool.expired() || index == -1;
+        }
+
+        std::vector<TreeNodePool::Reference> &operator*()
+        {
+            assertMsg(!empty(),
+                      "Cannot dereference an empty reference",
+                      __FILE__, __LINE__);
+            return pool.lock()->ref_vectors[index];
+        }
+
+        const std::vector<TreeNodePool::Reference> &operator*() const
+        {
+            assertMsg(!empty(),
+                      "Cannot dereference an empty reference",
+                      __FILE__, __LINE__);
+            return pool.lock()->ref_vectors[index];
+        }
+    };
+
+    RefVectorPool() = default;
+
+    void reserve(int size)
+    {
+        assertMsg(ref_vectors.empty() && size > 0,
+                  "Cannot reserve space for RefArrayPool twice",
+                  __FILE__, __LINE__);
+        ref_vectors.resize(size);
+    }
+
+    Reference allocate()
+    {
+        assertMsg(allocated_count < ref_vectors.size(),
+                  "No more space to allocate",
+                  __FILE__, __LINE__);
+        return Reference(shared_from_this(), allocated_count++);
+    }
+
+    void clear()
+    {
+        allocated_count = 0;
+    }
+};
+
 struct TreeNode
 {
-    std::weak_ptr<TreeNodePool> pool;
+    std::weak_ptr<TreeNodePool> tree_node_pool;
     int index_of_this;
 
+    std::weak_ptr<RefVectorPool> ref_array_pool;
+
     TreeNodePool::Reference parent_ref;
-    std::vector<TreeNodePool::Reference> children_refs;
+    RefVectorPool::Reference children_refs;
 
     int action;
     PUCT puct;
 
-    TreeNode(std::weak_ptr<TreeNodePool> pool, int index_of_this)
-        : pool(pool), index_of_this(index_of_this), action(-1), puct(0, 0) {}
+    TreeNode(std::weak_ptr<TreeNodePool> tree_node_pool, int index_of_this,
+             std::weak_ptr<RefVectorPool> ref_array_pool)
+        : tree_node_pool(tree_node_pool), index_of_this(index_of_this),
+          ref_array_pool(ref_array_pool), action(-1), puct(0, 0) {}
 
     void setStat(const TreeNodePool::Reference &parent_ref,
                  int action, float prior_prob, float c_puct)
@@ -165,7 +240,7 @@ struct TreeNode
         TreeNodePool::Reference selected_child;
         auto visit_count = this->getVisitCount();
         float best_value = std::numeric_limits<float>::lowest();
-        for (const auto &child_ref : children_refs)
+        for (const auto &child_ref : *children_refs)
         {
             float value = (*child_ref).value(visit_count);
             if (value > best_value)
@@ -179,19 +254,25 @@ struct TreeNode
 
     void expand(const std::vector<std::pair<int, float>> &actions_probs, float c_puct)
     {
-        auto this_ref = TreeNodePool::Reference(pool, index_of_this);
-        children_refs.resize(actions_probs.size());
+        assertMsg(!tree_node_pool.expired() && !ref_array_pool.expired(),
+                  "Reference to TreeNodePool or RefVectorPool is expired",
+                  __FILE__, __LINE__);
+
+        auto this_ref = TreeNodePool::Reference(tree_node_pool, index_of_this);
+        children_refs = ref_array_pool.lock()->allocate();
+        (*children_refs).resize(actions_probs.size());
         for (int i = 0; i < actions_probs.size(); ++i)
         {
-            children_refs[i] = pool.lock()->allocate();
-            (*children_refs[i]).setStat(this_ref, actions_probs[i].first, actions_probs[i].second, c_puct);
+            auto &child_ref = (*children_refs)[i];
+            child_ref = tree_node_pool.lock()->allocate();
+            (*child_ref).setStat(this_ref, actions_probs[i].first, actions_probs[i].second, c_puct);
         }
     }
 
     TreeNodePool::Reference step(int action)
     {
         TreeNodePool::Reference next_root;
-        for (const auto &child_ref : children_refs)
+        for (const auto &child_ref : *children_refs)
             if ((*child_ref).action == action)
             {
                 next_root = child_ref;
@@ -207,7 +288,7 @@ struct TreeNode
     {
         std::cout << "Total visit count: "
                   << this->getVisitCount() << std::endl;
-        for (const auto &child_ref : children_refs)
+        for (const auto &child_ref : *children_refs)
         {
             std::cout << "  Action: " << (*child_ref).action << " ";
             std::cout << "Visit count: " << (*child_ref).getVisitCount() << " ";
@@ -221,7 +302,8 @@ template <typename Env, typename EnvStat>
 class MCTS
 {
 private:
-    std::shared_ptr<TreeNodePool> pool;
+    std::shared_ptr<TreeNodePool> tree_node_pool;
+    std::shared_ptr<RefVectorPool> ref_array_pool;
 
     const float c_puct;
     const int num_search;
@@ -237,15 +319,19 @@ private:
 
 public:
     MCTS(float c_puct, int num_search, std::shared_ptr<Env> env)
-        : pool(std::make_shared<TreeNodePool>()), c_puct(c_puct),
-          num_search(num_search), current_search(0),
+        : tree_node_pool(std::make_shared<TreeNodePool>()),
+          ref_array_pool(std::make_shared<RefVectorPool>()),
+          c_puct(c_puct), num_search(num_search), current_search(0),
           stat(env->getStat()), env(env)
     {
         assertMsg(num_search > 0,
                   "num_search must be positive",
                   __FILE__, __LINE__);
-        pool->reserve(num_search * env->actionShape() + 1);
-        root_ref = pool->allocate();
+
+        ref_array_pool->reserve(num_search);
+        tree_node_pool->reserve(num_search * env->actionShape(), ref_array_pool);
+
+        root_ref = tree_node_pool->allocate();
         (*root_ref).setStat(TreeNodePool::Reference(), -1, 0, c_puct);
     }
 
@@ -322,7 +408,7 @@ public:
         assertMsg(ignore_unfinished || (*root_ref).getVisitCount() >= num_search,
                   "MCTS search not finished", __FILE__, __LINE__);
         std::vector<std::pair<int, int>> actions_visits;
-        for (const auto &child_ref : (*root_ref).children_refs)
+        for (const auto &child_ref : (*(*root_ref).children_refs))
             actions_visits.push_back(
                 std::make_pair((*child_ref).action, (*child_ref).getVisitCount()));
         return actions_visits;
@@ -337,10 +423,11 @@ public:
         env->step(action);
         stat = env->getStat();
 
-        pool->clear();
+        tree_node_pool->clear();
+        ref_array_pool->clear();
         current_search = 0;
         selected_node.clear();
-        root_ref = pool->allocate();
+        root_ref = tree_node_pool->allocate();
         (*root_ref).setStat(TreeNodePool::Reference(), -1, 0, c_puct);
 
         // TODO: support reset_root = false
