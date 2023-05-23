@@ -12,6 +12,7 @@ TEST(MCTSTest, Encode)
     env.reset();
     auto valid_actions = env.getActions();
     EXPECT_EQ(valid_actions.size(), 15 * 15);
+    EXPECT_EQ(env.actionShape(), 15 * 15);
     env.step(0);
     env.step(15);
     env.step(1);

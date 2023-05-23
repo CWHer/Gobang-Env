@@ -4,7 +4,7 @@
 eval "$(conda shell.bash hook)"
 conda activate envpool-dev
 if [ $? -ne 0 ]; then
-    conda create -n envpool-dev python=3.9
+    conda create -n envpool-dev python=3.10 -y
     conda activate envpool-dev
 fi
 
@@ -29,6 +29,7 @@ make bazel-release
 pip install dist/* --force-reinstall
 
 cd ..
+pip install tqdm
 python -m unittest gobang_envpool_test.py
 if [ $? -ne 0 ]; then
     echo "Test failed!"

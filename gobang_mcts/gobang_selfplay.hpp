@@ -88,12 +88,11 @@ public:
                 // player->step(action, true);
 
                 // HACK: is_player_done ensures that gobang_env is updated only once
-                player->step(action);
+                player->step(action, true);
             }
             std::tie(is_game_done, winner) = gobang_env.checkFinished();
             assertMsg(winner == -1 || winner == current_player,
-                      "Winner is not current player",
-                      __FILE__, __LINE__);
+                      "Winner is not current player");
             if (is_game_done)
                 return true;
 
@@ -103,8 +102,7 @@ public:
 
     int getWinner()
     {
-        assertMsg(is_game_done, "Game is not done yet",
-                  __FILE__, __LINE__);
+        assertMsg(is_game_done, "Game is not done yet");
         return winner;
     }
 

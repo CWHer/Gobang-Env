@@ -24,11 +24,9 @@ struct GobangBoard
     void step(int index)
     {
         assertMsg(index >= 0 && index < board.size(),
-                  "Invalid index " + std::to_string(index),
-                  __FILE__, __LINE__);
+                  "Invalid index " + std::to_string(index));
         assertMsg(board[index] == -1,
-                  "Invalid index " + std::to_string(index),
-                  __FILE__, __LINE__);
+                  "Invalid index " + std::to_string(index));
         board[index] = player;
         player ^= 1;
         historical_actions.push_back(index);
@@ -139,9 +137,7 @@ public:
 
     std::pair<bool, int> checkFinished()
     {
-        assertMsg(winner == -1,
-                  "Game has already finished",
-                  __FILE__, __LINE__);
+        assertMsg(winner == -1, "Game has already finished");
         static const int dx[] = {1, 1, 0, -1};
         static const int dy[] = {0, 1, 1, 1};
         int blank_count = 0;
@@ -180,5 +176,10 @@ public:
     std::vector<int> getState(int num_player_planes)
     {
         return board.encode(num_player_planes);
+    }
+
+    int actionShape() const
+    {
+        return board.board_size * board.board_size;
     }
 };
